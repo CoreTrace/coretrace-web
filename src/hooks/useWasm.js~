@@ -1,0 +1,66 @@
+import { useState, useEffect, useCallback } from 'react';
+import { initializeCoreTool, runStaticAnalysis, runDynamicAnalysis } from '../services/coreTraceAPI';
+import { useEditor } from '../contexts/EditorContext';
+
+export function useWasm() {
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { code, setAnalysisResults, setIsAnalyzing } = useEditor();
+
+  // Initialize the WASM module
+  useEffect(() => {
+    async function loadWasm() {
+      setIsLoading(true);
+      try {
+        const loaded = await initializeCoreTool();
+        setIsLoaded(loaded);
+      } catch (error) {
+        console.error('Failed to load CoreTrace WASM module:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadWasm();
+  }, []);
+
+  const analyzeCode = useCallback(async (type) => {
+    if (!isLoaded) {
+      console.error('WASM module not loaded');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      let results;
+      
+      if (type === 'static') {
+        results = await runStaticAnalysis(code);
+      } else {
+        results = await runDynamicAnalysis(code);
+      }
+      
+      setAnalysisResults(results);
+    } catch (error) {
+      console.error(`${type} analysis failed:`, error);
+      setAnalysisResults([{
+        type: 'error',
+        message: `${type} analysis failed: ${error instanceof Error ? error.message : String(error)}`,
+        line: 1,
+        column: 1
+      }]);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [code, isLoaded, setAnalysisResults, setIsAnalyzing]);
+
+  const runStaticAudit = useCallback(() => analyzeCode('static'), [analyzeCode]);
+  const runDynamicAudit = useCallback(() => analyzeCode('dynamic'), [analyzeCode]);
+
+  return {
+    isLoaded,
+    isLoading,
+    runStaticAudit,
+    runDynamicAudit
+  };
+}
