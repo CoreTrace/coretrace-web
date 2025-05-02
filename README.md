@@ -1,11 +1,10 @@
-# CoreTrace Web
+# CoreTrace Web Interface
 
 A web-based interface for the CoreTrace tool that uses WebAssembly for core functionality.
 
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) (v16 or higher)
-- [Bun](https://bun.sh/) (for package management)
 
 ## Getting Started
 
@@ -19,36 +18,40 @@ git clone <repository-url>
 cd ctrace-web
 ```
 
-2. Install dependencies:
+2. Install dependencies for the client:
 ```bash
-bun install
+cd client
+npm install
+```
+
+3. Install dependencies for the server:
+```bash
+cd server
+npm install
 ```
 
 ### Running the Development Server
 
 Start the development server with:
 ```bash
-bun start
+cd server
+npm run dev
+```
+
+### Running the Client
+In a separate terminal, start the client:
+```bash
+cd client
+npm run start
 ```
 
 ## Project Structure
 
-- `public/` - Static assets
-  - `wasm/` - WebAssembly files for the core CTrace functionality
-- `src/` - Source code
-  - `components/` - React components
-  - `contexts/` - React contexts
-  - `hooks/` - Custom React hooks
-  - `services/` - Service modules
-  - `styles/` - CSS and styling files
-
-## WebAssembly Integration
-
-This project uses WebAssembly modules located in `public/wasm/` to provide core tracing functionality.
+- `client/` - Contains the React frontend application.
+- `server/` - Contains the Node.js backend server.
 
 ## Technologies Used
 
 - React
 - WebAssembly
 - Tailwind CSS
-- Bun package manager
