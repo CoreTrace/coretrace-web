@@ -45,6 +45,7 @@ function ResultsDisplay({
   results,
   loading,
   filename,
+  availableTools,
   setFilename,
   options,
   handleOptionChange,
@@ -62,6 +63,7 @@ function ResultsDisplay({
         handleToolToggle={handleToolToggle}
         analyzeCode={analyzeCode}
         loading={loading}
+        availableTools={availableTools}
       />
 
       {/* Results content */}

@@ -129,8 +129,8 @@ async function analyzeCode(files, options) {
         console.error(`Job ${jobId} failed:`, error);
         throw error;
     } finally {
-        // scheduleCleanup(jobId, workDir);
-        // console.log(`Scheduled cleanup for job ${jobId} in directory: ${workDir}`);
+        scheduleCleanup(jobId, workDir);
+        console.log(`Scheduled cleanup for job ${jobId} in directory: ${workDir}`);
     }
 }
 
