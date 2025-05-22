@@ -1,6 +1,7 @@
 const express = require('express');
-const { analyzeCode, getAnalysisStatus } = require('../services/analyzer');
-
+const analyzer = require('../services/analyzer');
+const jobManager = require('../services/jobManager');
+const logger = require('../services/logger');
 const router = express.Router();
 
 /**
@@ -11,33 +12,40 @@ router.post('/', async (req, res) => {
     try {
         const { files, options } = req.body;
 
-        // Validation
-        if (!files || Object.keys(files).length === 0) {
-            return res.status(400).json({ error: 'No files provided' });
+        // Validate files
+        const validationErrors = jobManager.validateFiles(files);
+        if (validationErrors.length > 0) {
+            return res.status(400).json({ 
+                error: 'Validation failed', 
+                details: validationErrors 
+            });
         }
 
-        // Validate file sizes and content
-        for (const [filename, content] of Object.entries(files)) {
-            if (typeof content !== 'string') {
-                return res.status(400).json({ error: 'File content must be a string' });
-            }
-
-            if (content.length > 1000000) { // 1MB limit per file
-                return res.status(400).json({ error: 'File size exceeds the limit (1MB)' });
-            }
-
-            if (!filename.match(/\.(c|cpp|h|hpp)$/i)) {
-                return res.status(400).json({ error: 'Only C/C++ files are allowed' });
-            }
-        }
-
-        // Call service function to handle the analysis
-        const result = await analyzeCode(files, options || {});
+        // Run analysis
+        const result = await analyzer.analyzeCode(files, options);
         res.json(result);
     } catch (error) {
-        console.error('Error analyzing code:', error);
-        res.status(500).json({ error: 'An error occurred during analysis' });
+        logger.error('Analysis request failed', { 
+            error: error.message,
+            requestId: req.requestId
+        });
+        res.status(500).json({ 
+            error: 'Analysis failed',
+            message: error.message
+        });
     }
+});
+
+/**
+ * @route GET /api/analyze/:jobId
+ * @description Get the status of an analysis job
+ */
+router.get('/:jobId', (req, res) => {
+    const job = jobManager.getJob(req.params.jobId);
+    if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+    }
+    res.json(job);
 });
 
 module.exports = router;

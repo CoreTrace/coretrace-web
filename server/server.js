@@ -1,72 +1,47 @@
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
-const routes = require('./routes');
-const { exec } = require('child_process');
-const fs = require('fs');
-const os = require('os');
-const { v4: uuidv4 } = require('uuid');
+const logger = require('./services/logger');
+const { errorHandler } = require('./middleware/errorHandler');
+const { apiLimiter, analysisLimiter } = require('./middleware/rateLimiter');
+const securityMiddleware = require('./middleware/security');
+const config = require('./config');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, '../client/build')));
-app.use('/api', routes);
+// Apply security middleware
+app.use(securityMiddleware);
 
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+// Apply rate limiting
+app.use('/api/', apiLimiter);
+app.use('/api/analyze', analysisLimiter);
+
+// Request logging
+app.use(logger.requestLogger);
+
+// Body parser
+app.use(express.json({ limit: '10kb' }));
+
+// Routes
+app.use('/api/analyze', require('./routes/analyze'));
+
+// Error handling
+app.use(errorHandler);
+
+// Start server
+const server = app.listen(config.server.port, () => {
+    logger.info(`Server running on port ${config.server.port}`);
 });
 
-// Endpoint to analyze code
-app.post('/api/analyze', async (req, res) => {
-  try {
-    const { files, options } = req.body;
-
-    if (!files || Object.keys(files).length === 0) {
-      return res.status(400).json({ error: 'No files provided' });
-    }
-
-    // Validate file sizes and content
-    for (const [filename, content] of Object.entries(files)) {
-      if (typeof content !== 'string') {
-        return res.status(400).json({ error: 'File content must be a string' });
-      }
-
-      if (content.length > 1000000) { // 1MB limit per file
-        return res.status(400).json({ error: 'File size exceeds the limit (1MB)' });
-      }
-
-      if (!filename.match(/\.(c|cpp|h|hpp)$/i)) {
-        return res.status(400).json({ error: 'Only C/C++ files are allowed' });
-      }
-    }
-
-    const result = await runCoreTrace(files, options || {});
-    res.json(result);
-  } catch (error) {
-    console.error('Error analyzing code:', error);
-    res.status(500).json({ error: 'An error occurred during analysis' });
-  }
+// Handle unhandled rejections
+process.on('unhandledRejection', (err) => {
+    logger.error('UNHANDLED REJECTION! Shutting down...', { error: err });
+    server.close(() => {
+        process.exit(1);
+    });
 });
 
-// Catch-all handler for client-side routing
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+    logger.error('UNCAUGHT EXCEPTION! Shutting down...', { error: err });
+    process.exit(1);
 });
-
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: 'An unexpected error occurred',
-    message: process.env.NODE_ENV === 'production' ? undefined : err.message
-  });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
-module.exports = app;
