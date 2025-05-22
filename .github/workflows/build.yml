@@ -17,12 +17,13 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-        cache: 'npm'
 
     # Install and test client
     - name: Install client dependencies
       working-directory: ./client
-      run: npm ci
+      run: |
+        npm ci
+        npm run build
 
     - name: Run client tests
       working-directory: ./client
@@ -31,10 +32,6 @@ jobs:
     - name: Run client linting
       working-directory: ./client
       run: npm run lint
-
-    - name: Build client
-      working-directory: ./client
-      run: npm run build
 
     # Install and test server
     - name: Install server dependencies
@@ -58,4 +55,3 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-        cache: 'npm'
