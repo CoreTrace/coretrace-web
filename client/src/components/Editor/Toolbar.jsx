@@ -4,11 +4,13 @@ function EditorToolbar({
     filename,
     setFilename,
     options,
+    availableTools,
     handleOptionChange,
     handleToolToggle,
     analyzeCode,
     loading
 }) {
+    console.log("options",options);
 
     return (
         <div className="border-b border-gray-700">
@@ -71,7 +73,7 @@ function EditorToolbar({
 
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-gray-300 font-medium">Tools:</span>
-                        {['cppcheck', 'flawfinder', 'ikos', 'tscancode'].map(tool => (
+                        {availableTools.tools.map(tool => (
                             <label key={tool} className="flex items-center space-x-2 cursor-pointer">
                                 <input
                                     type="checkbox"

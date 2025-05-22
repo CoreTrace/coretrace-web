@@ -7,6 +7,7 @@ function ResultsPane({
   filename,
   setFilename,
   options,
+  availableTools,
   handleOptionChange,
   handleToolToggle,
   analyzeCode,
@@ -26,6 +27,7 @@ function ResultsPane({
         filename={filename}
         setFilename={setFilename}
         options={options}
+        availableTools={availableTools}
         handleOptionChange={handleOptionChange}
         handleToolToggle={handleToolToggle}
         analyzeCode={analyzeCode}

@@ -6,6 +6,10 @@ const router = express.Router();
 /**
  * @route POST /api/analyze
  * @description Submit code for analysis with CoreTrace
+ * @param {Object} req - Express request object
+ * @param {Object} req.body - Request body containing files and options
+ * @param {Object} res - Express response object
+ * @returns {void}
  */
 router.post('/', async (req, res) => {
     try {
