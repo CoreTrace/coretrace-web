@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import EditorToolbar from './Toolbar';
 
 function ResultsDisplay({
@@ -22,10 +22,10 @@ function ResultsDisplay({
     if (results && !results.error) {
       setActiveTools([...options.tools]);
     }
-  }, [results]); // Remove options.tools from dependencies
+  }, [results, options.tools]); // Add options.tools to dependencies
 
   // Parse the stdout string to separate content by tool
-  const parseOutputByTool = (stdout) => {
+  const parseOutputByTool = useCallback((stdout) => {
     if (!stdout) return {};
 
     const toolOutputs = {};
@@ -47,13 +47,13 @@ function ResultsDisplay({
     });
 
     return toolOutputs;
-  };
+  }, [activeTools]); // Add activeTools as dependency
 
   // Parse the stdout and memoize the result to avoid unnecessary re-parsing
   const parsedOutputs = useMemo(() => {
     if (!results || !results.stdout) return {};
     return parseOutputByTool(results.stdout);
-  }, [results, activeTools]);
+  }, [results, parseOutputByTool]); // Add parseOutputByTool to dependencies
 
   // Update selectedOption when activeTools change or when component mounts
   useEffect(() => {
