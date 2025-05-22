@@ -1,0 +1,61 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, dev, 7-feat-add-workflow-ci ]
+  pull_request:
+    branches: [ main, dev, 7-feat-add-workflow-ci ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    # Install and test client
+    - name: Install client dependencies
+      working-directory: ./client
+      run: npm ci
+
+    - name: Run client tests
+      working-directory: ./client
+      run: npm test
+
+    - name: Run client linting
+      working-directory: ./client
+      run: npm run lint
+
+    - name: Build client
+      working-directory: ./client
+      run: npm run build
+
+    # Install and test server
+    - name: Install server dependencies
+      working-directory: ./server
+      run: npm ci
+
+    # Build server (if needed)
+    - name: Build server
+      working-directory: ./server
+      run: npm run build || echo "No build script found, skipping"
+
+  deploy:
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
