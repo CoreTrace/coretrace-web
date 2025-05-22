@@ -14,14 +14,23 @@ function ResultsDisplay({
 }) {
   // Set default selected option to "All" or first tool if available
   const [selectedOption, setSelectedOption] = useState("All");
+  // Track which tools were active during the last analysis
+  const [activeTools, setActiveTools] = useState([]);
+
+  // Update activeTools ONLY when new results come in
+  useEffect(() => {
+    if (results && !results.error) {
+      setActiveTools([...options.tools]);
+    }
+  }, [results]); // Remove options.tools from dependencies
 
   // Parse the stdout string to separate content by tool
   const parseOutputByTool = (stdout) => {
     if (!stdout) return {};
 
     const toolOutputs = {};
-    // Use options.tools if available, otherwise use default tools
-    const toolNames = options?.tools || [''];
+    // Use activeTools instead of options.tools
+    const toolNames = activeTools.length > 0 ? activeTools : [''];
 
     // Initialize with an "All" category that contains everything
     toolOutputs['All'] = stdout;
@@ -34,8 +43,6 @@ function ResultsDisplay({
       if (matches.length > 0) {
         // Combine all matching sections for this tool
         toolOutputs[tool] = matches.map(match => match[0]).join('\n\n');
-      } else {
-        toolOutputs[tool] = `No output found for ${tool}`;
       }
     });
 
@@ -46,22 +53,23 @@ function ResultsDisplay({
   const parsedOutputs = useMemo(() => {
     if (!results || !results.stdout) return {};
     return parseOutputByTool(results.stdout);
-  }, [results, options?.tools]);
+  }, [results, activeTools]);
 
-  // Update selectedOption when options change or when component mounts
+  // Update selectedOption when activeTools change or when component mounts
   useEffect(() => {
-    if (options?.tools && !['All', ...options.tools].includes(selectedOption)) {
+    if (activeTools.length > 0 && !['All', ...activeTools].includes(selectedOption)) {
       setSelectedOption('All');
     }
-  }, [options, selectedOption]);
+  }, [activeTools, selectedOption]);
 
   // If availableTools contains actual tools, use those to determine available options
   const displayOptions = useMemo(() => {
-    if (!options || !options.tools || options.tools.length === 0) {
+    if (!activeTools || activeTools.length === 0) {
       return ['All'];
     }
-    return ['All', ...options.tools];
-  }, [options]);
+    // Show only the tools that were active during the last analysis
+    return ['All', ...activeTools];
+  }, [activeTools]);
 
   // Handle button click for an option
   const handleOptionClick = (option) => {
@@ -95,7 +103,6 @@ function ResultsDisplay({
       {loading && (
         <div className="text-center text-gray-400 mt-4">Analyzing your code...</div>
       )}
-
       {results && !results.error && (
         <div className="mt-4">
           {results.report ? (
