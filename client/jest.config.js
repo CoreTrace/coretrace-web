@@ -1,9 +1,10 @@
-export default {
-  transform: {
-    "^.+\\.(js|jsx)$": "babel-jest"
-  },
+module.exports = {
+  preset: 'react-scripts',
+  testEnvironment: 'jsdom',
   transformIgnorePatterns: [
-    "/node_modules/(?!axios)/"
+    "node_modules/(?!(axios|react-router|@remix-run)/)"
   ],
-  testEnvironment: "jsdom"
+  moduleNameMapper: {
+    '^axios$': '<rootDir>/node_modules/axios/dist/axios.js'
+  }
 };

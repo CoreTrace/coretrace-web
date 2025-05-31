@@ -28,7 +28,7 @@ jobs:
     - name: Run client tests
       working-directory: ./client
       run: |
-        NODE_OPTIONS="--experimental-vm-modules" npm test -- --passWithNoTests --transformIgnorePatterns "node_modules/(?!axios|react-router|@remix-run/)/"
+        npm test -- --passWithNoTests --no-watch
 
     - name: Run client linting
       working-directory: ./client

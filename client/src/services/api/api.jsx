@@ -45,8 +45,15 @@ export const analyzeCode = async (filename, code, options) => {
 export const getAvailableTools = async () => {
     try {
         const response = await api.get('/api/tools');
+        // Return a safe default if the data doesn't have the expected format
+        if (!response.data || (!response.data.tools && !Array.isArray(response.data))) {
+            console.warn('Tools API returned unexpected format:', response.data);
+            return { tools: [] };
+        }
         return response.data;
     } catch (error) {
-        throw new Error(error.response?.data?.error || 'Failed to retrieve tools');
+        console.error('API Error:', error);
+        // Return a safe default object instead of throwing
+        return { tools: [] };
     }
 };
