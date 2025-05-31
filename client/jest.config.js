@@ -1,5 +1,9 @@
-module.exports = {
+export default {
+  transform: {
+    "^.+\\.(js|jsx)$": "babel-jest"
+  },
   transformIgnorePatterns: [
-    '/node_modules/(?!axios|socket.io-client)/'
-  ]
+    "/node_modules/(?!axios)/"
+  ],
+  testEnvironment: "jsdom"
 };
