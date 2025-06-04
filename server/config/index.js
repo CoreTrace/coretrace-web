@@ -4,7 +4,7 @@ const os = require('os');
 module.exports = {
     // Server configuration
     server: {
-        port: process.env.PORT || 3000,
+        port: process.env.PORT || 5000,
         host: process.env.HOST || 'localhost',
         env: process.env.NODE_ENV || 'development'
     },
@@ -16,7 +16,9 @@ module.exports = {
             memory: '64', // MB
             kernel: '/boot/vmlinuz-linux-lts',
             timeout: 30000, // ms
-            preferredMethod: 'qemu' // qemu, bubblewrap, firejail, or fallback
+            preferredMethod: 'qemu', // qemu, bubblewrap, firejail, or fallback
+            libRoot: '/usr/x86_64-linux-gnu',
+            customLibDir: null
         },
         // Resource limits
         limits: {

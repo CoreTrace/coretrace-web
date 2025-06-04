@@ -3,6 +3,10 @@ const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
 const crypto = require('crypto');
+const config = require('../config');
+require('dotenv').config();
+const qemuBinary = process.env.QEMU_BINARY || 'qemu-x86_64';
+const libRoot = process.env.QEMU_LIB_ROOT || '/usr/x86_64-linux-gnu';
 
 /**
  * Create a sandboxed environment for running code analysis
@@ -234,25 +238,22 @@ function sandboxWithFirejail(executablePath, args = [], timeoutMs = 10000) {
  * @returns {Promise<Object>} Result of the execution
  */
 async function sandboxWithBestMethod(executablePath, args = [], timeoutMs = 10000, preferredSandbox = 'qemu') {
+    console.log("sandboxWithBestMethod", executablePath, args, timeoutMs, preferredSandbox);
     try {
         // Try the preferred sandbox first
         if (preferredSandbox === 'qemu') {
             try {
-                return await sandboxWithQemu(executablePath, args, timeoutMs);
+                console.log("Trying QEMU user-mode");
+                return await sandboxWithQemuUser(executablePath, args, timeoutMs, config.sandbox.qemu.libRoot, config.sandbox.qemu.customLibDir);
             } catch (qemuError) {
-                console.log("QEMU system emulation failed, falling back to QEMU user-mode:", qemuError.message);
-                try {
-                    return await sandboxWithQemuUser(executablePath, args, timeoutMs);
-                } catch (qemuUserError) {
-                    console.log("QEMU user-mode failed, falling back to bubblewrap:", qemuUserError.message);
-                    // Continue with fallback methods
-                }
+                console.log("QEMU failed, falling back to bubblewrap:", qemuError.message);
             }
         }
 
         // Fallback to other sandbox methods
         if (preferredSandbox === 'qemu' || preferredSandbox === 'bubblewrap') {
             try {
+                console.log("Trying Bubblewrap");
                 return await sandboxWithBubblewrap(executablePath, args, timeoutMs);
             } catch (bwrapError) {
                 console.log("Bubblewrap failed, falling back to firejail:", bwrapError.message);
@@ -261,6 +262,7 @@ async function sandboxWithBestMethod(executablePath, args = [], timeoutMs = 1000
 
         if (preferredSandbox === 'qemu' || preferredSandbox === 'bubblewrap' || preferredSandbox === 'firejail') {
             try {
+                console.log("Trying Firejail");
                 return await sandboxWithFirejail(executablePath, args, timeoutMs);
             } catch (firejailError) {
                 console.log("Firejail failed, falling back to basic sandbox:", firejailError.message);
@@ -268,6 +270,7 @@ async function sandboxWithBestMethod(executablePath, args = [], timeoutMs = 1000
         }
 
         // Last resort: basic sandbox with resource limits
+        console.log("Trying basic sandbox");
         return await sandboxExecutable(executablePath, args, timeoutMs);
     } catch (error) {
         console.error("All sandbox methods failed:", error.message);
@@ -464,48 +467,57 @@ exec /bin/sh
  * @param {number} timeoutMs - Timeout in milliseconds
  * @returns {Promise<Object>} Result of the execution
  */
-function sandboxWithQemuUser(executablePath, args = [], timeoutMs = 10000) {
+function sandboxWithQemuUser(
+    executablePath,
+    args = [],
+    timeoutMs = 10000,
+    libRoot = '/usr/x86_64-linux-gnu', // Default system libs
+    customLibDir = null                // Directory with custom .so files, if any
+) {
     const path = require('path');
     const fs = require('fs');
     const { spawn } = require('child_process');
 
     return new Promise((resolve, reject) => {
-        // Ensure the executable exists
         if (!fs.existsSync(executablePath)) {
             return reject(new Error(`Executable not found: ${executablePath}`));
         }
 
-        // Determine the architecture of the executable to choose the right QEMU binary
-        // This is a simplified approach; in a real system you'd use 'file' command or similar
-        const qemuBinary = 'qemu-x86_64'; // Default to x86_64, adjust based on your needs
+        const qemuBinary = 'qemu-x86_64';
 
         const qemuArgs = [
-            '-strace',                     // Log system calls for debugging
-            '-L', '/usr/x86_64-linux-gnu', // Path to system libraries
-            executablePath,                // The executable to run
-            ...args                        // Arguments to the executable
+            '-L', libRoot,
+            executablePath,
+            ...args
         ];
 
-        console.log(`Running with QEMU user-mode: ${executablePath} ${args.join(' ')}`);
+        // Set up environment
+        const env = { ...process.env };
+        if (customLibDir) {
+            env.LD_LIBRARY_PATH = customLibDir;
+        }
 
-        const process = spawn(qemuBinary, qemuArgs, {
+        console.log(`Running with QEMU user-mode: ${executablePath} ${args.join(' ')} (libRoot: ${libRoot}, LD_LIBRARY_PATH: ${env.LD_LIBRARY_PATH || ''})`);
+
+        const child = spawn(qemuBinary, qemuArgs, {
             cwd: path.dirname(executablePath),
             stdio: 'pipe',
-            timeout: timeoutMs
+            timeout: timeoutMs,
+            env
         });
 
         let stdout = '';
         let stderr = '';
 
-        process.stdout.on('data', (data) => {
+        child.stdout.on('data', (data) => {
             stdout += data.toString();
         });
 
-        process.stderr.on('data', (data) => {
+        child.stderr.on('data', (data) => {
             stderr += data.toString();
         });
 
-        process.on('close', (code) => {
+        child.on('close', (code) => {
             resolve({
                 code,
                 stdout,
@@ -514,8 +526,7 @@ function sandboxWithQemuUser(executablePath, args = [], timeoutMs = 10000) {
             });
         });
 
-        process.on('error', (err) => {
-            // Handle command not found error
+        child.on('error', (err) => {
             if (err.code === 'ENOENT') {
                 reject(new Error('QEMU user-mode emulation is not installed. Please install qemu-user first.'));
             } else {
@@ -523,11 +534,10 @@ function sandboxWithQemuUser(executablePath, args = [], timeoutMs = 10000) {
             }
         });
 
-        // Handle timeout
         setTimeout(() => {
-            if (!process.killed) {
-                process.kill('SIGKILL');
-                reject(new Error('Process execution timed out'));
+            if (!child.killed) {
+                child.kill('SIGKILL');
+                reject(new Error('child execution timed out'));
             }
         }, timeoutMs);
     });
