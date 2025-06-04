@@ -487,6 +487,11 @@ function sandboxWithQemuUser(
 
         const qemuArgs = [
             '-L', libRoot,
+            '-chroot', workDir,
+            '-read-only',
+            '-net', 'none',
+            '-m', '64',
+            '-rtc', 'base=utc',
             executablePath,
             ...args
         ];
