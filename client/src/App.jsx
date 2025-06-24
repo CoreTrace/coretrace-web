@@ -123,6 +123,8 @@ function App() {
         code={code}
         setCode={setCode}
         dividerPosition={dividerPosition}
+        filename={filename}
+        setFilename={setFilename}
       />
       {/* <Divider handleMouseDown={handleMouseDown} /> */}
       {availableTools.tools.length > 0 ? (
