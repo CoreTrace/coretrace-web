@@ -2,6 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
+const crypto = require('crypto');
+const config = require('../config');
+require('dotenv').config();
+const qemuBinary = process.env.QEMU_BINARY || 'qemu-x86_64';
+const libRoot = process.env.QEMU_LIB_ROOT || '/usr/x86_64-linux-gnu';
 
 /**
  * Create a sandboxed environment for running code analysis
@@ -232,41 +237,41 @@ function sandboxWithFirejail(executablePath, args = [], timeoutMs = 10000) {
  * @param {string} preferredSandbox - 'bubblewrap', 'firejail', or 'fallback'
  * @returns {Promise<Object>} Result of the execution
  */
-async function sandboxWithBestMethod(executablePath, args = [], timeoutMs = 10000, preferredSandbox = 'bubblewrap') {
+async function sandboxWithBestMethod(executablePath, args = [], timeoutMs = 10000, preferredSandbox = 'qemu') {
+    console.log("sandboxWithBestMethod", executablePath, args, timeoutMs, preferredSandbox);
     try {
         // Try the preferred sandbox first
+        if (preferredSandbox === 'qemu') {
+            try {
+                console.log("Trying QEMU user-mode");
+                return await sandboxWithQemuUser(executablePath, args, timeoutMs, config.sandbox.qemu.libRoot, config.sandbox.qemu.customLibDir);
+            } catch (qemuError) {
+                console.log("QEMU failed, falling back to bubblewrap:", qemuError.message);
+            }
+        }
+
+        // Fallback to other sandbox methods
         if (preferredSandbox === 'bubblewrap') {
             try {
+                console.log("Trying Bubblewrap");
                 return await sandboxWithBubblewrap(executablePath, args, timeoutMs);
             } catch (bwrapError) {
                 console.log("Bubblewrap failed, falling back to firejail:", bwrapError.message);
-                // If bubblewrap fails, try firejail
-                try {
-                    return await sandboxWithFirejail(executablePath, args, timeoutMs);
-                } catch (firejailError) {
-                    console.log("Firejail failed, falling back to basic sandbox:", firejailError.message);
-                    // If both fail, use basic sandbox
-                    return await sandboxExecutable(executablePath, args, timeoutMs);
-                }
             }
-        } else if (preferredSandbox === 'firejail') {
-            try {
-                return await sandboxWithFirejail(executablePath, args, timeoutMs);
-            } catch (firejailError) {
-                console.log("Firejail failed, falling back to bubblewrap:", firejailError.message);
-                // If firejail fails, try bubblewrap
-                try {
-                    return await sandboxWithBubblewrap(executablePath, args, timeoutMs);
-                } catch (bwrapError) {
-                    console.log("Bubblewrap failed, falling back to basic sandbox:", bwrapError.message);
-                    // If both fail, use basic sandbox
-                    return await sandboxExecutable(executablePath, args, timeoutMs);
-                }
-            }
-        } else {
-            // Use the basic sandbox as requested
-            return await sandboxExecutable(executablePath, args, timeoutMs);
         }
+
+        if (preferredSandbox === 'firejail') {
+            try {
+                console.log("Trying Firejail");
+                return await sandboxWithFirejailOnly(executablePath, args, timeoutMs);
+            } catch (firejailError) {
+                console.log("Firejail failed, falling back to basic sandbox:", firejailError.message);
+            }
+        }
+
+        // Last resort: basic sandbox with resource limits
+        console.log("Trying basic sandbox");
+        return await sandboxExecutable(executablePath, args, timeoutMs);
     } catch (error) {
         console.error("All sandbox methods failed:", error.message);
         throw error;
@@ -332,11 +337,337 @@ function sandboxExecutable(executablePath, args = [], timeoutMs = 10000) {
     });
 }
 
+/**
+ * Run an executable in a QEMU-based sandbox
+ * @param {string} executablePath - Path to the executable
+ * @param {Array} args - Arguments to pass to the executable
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @returns {Promise<Object>} Result of the execution
+ */
+function sandboxWithQemu(executablePath, args = [], timeoutMs = 10000) {
+    return new Promise((resolve, reject) => {
+        // Ensure the executable exists
+        if (!fs.existsSync(executablePath)) {
+            return reject(new Error(`Executable not found: ${executablePath}`));
+        }
+
+        // Create a temporary directory for the VM's filesystem
+        const vmId = crypto.randomBytes(8).toString('hex');
+        const vmDir = path.join(os.tmpdir(), `qemu-sandbox-${vmId}`);
+        fs.mkdirSync(vmDir, { recursive: true });
+
+        // Create a minimal filesystem structure for the VM
+        const vmBinDir = path.join(vmDir, 'bin');
+        fs.mkdirSync(vmBinDir, { recursive: true });
+
+        // Copy the executable to the VM directory
+        const execName = path.basename(executablePath);
+        const vmExecPath = path.join(vmBinDir, execName);
+        fs.copyFileSync(executablePath, vmExecPath);
+        fs.chmodSync(vmExecPath, 0o755); // Make it executable
+
+        // Create a script to run the executable with arguments
+        const scriptContent = `#!/bin/sh
+cd /bin
+./${execName} ${args.join(' ')}
+exit $?
+`;
+        const scriptPath = path.join(vmDir, 'run.sh');
+        fs.writeFileSync(scriptPath, scriptContent);
+        fs.chmodSync(scriptPath, 0o755);
+
+        // Create a minimal initrd
+        const initrdPath = path.join(vmDir, 'initrd.img');
+        const initrdContent = `#!/bin/sh
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs none /dev
+exec /bin/sh
+`;
+        fs.writeFileSync(initrdPath, initrdContent);
+        fs.chmodSync(initrdPath, 0o755);
+
+        // QEMU parameters with correct kernel path
+        const qemuArgs = [
+            '-nographic',               // No GUI
+            '-m', '64',                 // 64MB RAM
+            '-no-reboot',               // Don't reboot on crash
+            '-kernel', '/boot/vmlinuz-linux-lts', // Use the LTS kernel
+            '-initrd', initrdPath,      // Use our minimal initrd
+            '-append', 'console=ttyS0 panic=1 rootfstype=9p root=/dev/root rw init=/run.sh',
+            '-virtfs', `local,id=root,path=${vmDir},security_model=none,mount_tag=/dev/root`,
+            '-net', 'none'             // No network
+        ];
+
+        console.log(`Running with QEMU: ${executablePath} ${args.join(' ')}`);
+
+        const process = spawn('qemu-system-x86_64', qemuArgs, {
+            stdio: 'pipe',
+            timeout: timeoutMs
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        process.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        process.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        process.on('close', (code) => {
+            // Clean up temporary VM directory
+            try {
+                fs.rmSync(vmDir, { recursive: true, force: true });
+            } catch (error) {
+                console.error(`Failed to clean up VM directory ${vmDir}:`, error);
+            }
+
+            resolve({
+                code,
+                stdout,
+                stderr,
+                success: code === 0
+            });
+        });
+
+        process.on('error', (err) => {
+            // Clean up on error
+            try {
+                fs.rmSync(vmDir, { recursive: true, force: true });
+            } catch (cleanupError) {
+                console.error(`Failed to clean up VM directory ${vmDir}:`, cleanupError);
+            }
+
+            // Handle command not found error
+            if (err.code === 'ENOENT') {
+                reject(new Error('QEMU is not installed. Please install qemu-system-x86_64 first.'));
+            } else {
+                reject(err);
+            }
+        });
+
+        // Handle timeout
+        setTimeout(() => {
+            if (!process.killed) {
+                process.kill('SIGKILL');
+                reject(new Error('Process execution timed out'));
+            }
+        }, timeoutMs);
+    });
+}
+
+/**
+ * Run an executable in a Firejail sandbox with resource and network restrictions.
+ * Applies ulimit for memory (500MB) and uses firejail for network and filesystem isolation.
+ * @param {string} executablePath - Path to the executable
+ * @param {Array} args - Arguments to pass to the executable
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @returns {Promise<Object>} Result of the execution
+ */
+function sandboxWithFirejailOnly(
+    executablePath,
+    args = [],
+    timeoutMs = 10000
+) {
+    const path = require('path');
+    const fs = require('fs');
+    const { spawn } = require('child_process');
+
+    return new Promise((resolve, reject) => {
+        if (!fs.existsSync(executablePath)) {
+            return reject(new Error(`Executable not found: ${executablePath}`));
+        }
+        const sandboxDir = path.join(os.tmpdir(), `firejail-sandbox-${crypto.randomBytes(8).toString('hex')}`);
+        fs.mkdirSync(sandboxDir, { recursive: true });
+        const binaryName = path.basename(executablePath);
+        const sandboxBinaryPath = path.join(sandboxDir, binaryName);
+        fs.copyFileSync(executablePath, sandboxBinaryPath);
+        fs.chmodSync(sandboxBinaryPath, 0o755); // Ensure it's executable
+        // Compose the shell command with ulimit and firejail restrictions
+        // --net=none disables network, --private uses a private /tmp and home
+        // ulimit -v: max virtual memory (KB)
+        const shellCmd = [
+            // 'ulimit -v 100000;',         // 100MB memory limit
+            'exec',
+            'firejail',
+            '--quiet',
+            '--noprofile',
+            '--net=none',
+            '--private=' + sandboxDir,
+            '--private-tmp',
+            // '--private-dev',
+            '--blacklist=/var',
+            '--blacklist=/etc/shadow',
+            '--blacklist=/etc/passwd',
+            '--blacklist=/tmp',
+            './ctrace',
+            ...args
+        ].join(' ');
+
+        console.log(`Running with firejail (ulimit + firejail): ${shellCmd}`);
+
+        const child = spawn('bash', ['-c', shellCmd], {
+            cwd: path.dirname(executablePath),
+            stdio: 'pipe',
+            timeout: timeoutMs
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        child.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        child.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        child.on('close', (code) => {
+            resolve({
+                code,
+                stdout,
+                stderr,
+                success: code === 0
+            });
+            // Clean up temporary sandbox directory
+            try {
+                fs.rmSync(sandboxDir, { recursive: true, force: true });
+            } catch (error) {
+                console.error(`Failed to clean up sandbox directory ${sandboxDir}:`, error);
+            }
+        });
+
+        child.on('error', (err) => {
+            if (err.code === 'ENOENT') {
+                reject(new Error('firejail is not installed. Please install firejail.'));
+            } else {
+                reject(err);
+            }
+            // Clean up temporary sandbox directory
+            try {
+                fs.rmSync(sandboxDir, { recursive: true, force: true });
+            } catch (error) {
+                console.error(`Failed to clean up sandbox directory ${sandboxDir}:`, error);
+            }
+        });
+
+        setTimeout(() => {
+            if (!child.killed) {
+                child.kill('SIGKILL');
+                reject(new Error('child execution timed out'));
+            }
+        }, timeoutMs);
+    });
+}
+
+/**
+ * Alternative QEMU sandboxing approach using user-mode emulation
+ * Now applies ulimit (memory/process) and firejail (network/filesystem) restrictions.
+ * @param {string} executablePath - Path to the executable
+ * @param {Array} args - Arguments to pass to the executable
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @returns {Promise<Object>} Result of the execution
+ */
+function sandboxWithQemuUser(
+    executablePath,
+    args = [],
+    timeoutMs = 10000,
+    libRoot = '/usr/x86_64-linux-gnu',
+    customLibDir = null
+) {
+    const path = require('path');
+    const fs = require('fs');
+    const { spawn } = require('child_process');
+
+    return new Promise((resolve, reject) => {
+        if (!fs.existsSync(executablePath)) {
+            return reject(new Error(`Executable not found: ${executablePath}`));
+        }
+
+        const qemuBinary = 'qemu-x86_64';
+
+        // Compose the shell command with ulimit and firejail restrictions
+        // --net=none disables network, --private uses a private /tmp and home
+        // ulimit -v: max virtual memory (KB), ulimit -u: max user processes
+        const shellCmd = [
+            'ulimit -v 500000;',         // 500MB memory limit
+//            'ulimit -u 128;',             // Max 32 processes
+            'exec',
+            'firejail',
+            '--quiet',
+            '--noprofile',
+            '--net=none',
+            '--private',
+            qemuBinary,
+            '-L', libRoot,
+            executablePath,
+            ...args
+        ].join(' ');
+
+        // Set up environment
+        const env = { ...process.env };
+        if (customLibDir) {
+            env.LD_LIBRARY_PATH = customLibDir;
+        }
+
+        console.log(`Running with QEMU user-mode (ulimit + firejail): ${shellCmd}`);
+
+        const child = spawn('bash', ['-c', shellCmd], {
+            cwd: path.dirname(executablePath),
+            stdio: 'pipe',
+            timeout: timeoutMs,
+            env
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        child.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        child.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        child.on('close', (code) => {
+            resolve({
+                code,
+                stdout,
+                stderr,
+                success: code === 0
+            });
+        });
+
+        child.on('error', (err) => {
+            if (err.code === 'ENOENT') {
+                reject(new Error('QEMU user-mode emulation or firejail is not installed. Please install qemu-user and firejail.'));
+            } else {
+                reject(err);
+            }
+        });
+
+        setTimeout(() => {
+            if (!child.killed) {
+                child.kill('SIGKILL');
+                reject(new Error('child execution timed out'));
+            }
+        }, timeoutMs);
+    });
+}
+
+
 module.exports = {
     createSandbox,
     cleanupSandbox,
     sandboxWithBubblewrap,
     sandboxWithFirejail,
     sandboxWithBestMethod,
-    sandboxExecutable
+    sandboxExecutable,
+    sandboxWithQemu,
+    sandboxWithFirejailOnly
 };
