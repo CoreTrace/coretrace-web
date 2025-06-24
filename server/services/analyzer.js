@@ -15,7 +15,7 @@ const analysisJobs = new Map();
 class Analyzer {
     constructor() {
         this.ctraceExecutable = path.join(__dirname, '../../server/bin/ctrace');
-        this.testExecutable = path.join(__dirname, '../../server/bin/resources');
+        this.testExecutable = path.join(__dirname, '../../server/bin/test');
     }
 
     async analyzeCode(files, options) {
@@ -96,7 +96,7 @@ class Analyzer {
             execPath,
             args,
             config.sandbox.qemu.timeout,
-            config.sandbox.qemu.preferredMethod
+            'firejail'
         );
 
         // Clean output
