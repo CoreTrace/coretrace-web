@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import EditorToolbar from './Toolbar';
+import TreeGraph from '../graph/TreeGraph';
 
 function ResultsDisplay({
   results,
@@ -12,6 +13,28 @@ function ResultsDisplay({
   handleToolToggle,
   analyzeCode,
 }) {
+  const placeholderCallTree = {
+    id: 1,
+    label: "main",
+    children: [
+      { id: 2, label: "init", children: [] },
+      {
+        id: 3,
+        label: "process",
+        children: [
+          { id: 4, label: "loadData", children: [] },
+          {
+            id: 5,
+            label: "compute",
+            children: [
+              { id: 6, label: "helper", children: [] }
+            ]
+          }
+        ]
+      },
+      { id: 7, label: "cleanup", children: [] }
+    ]
+  };
   // Set default selected option to "All" or first tool if available
   const [selectedOption, setSelectedOption] = useState("All");
   // Track which tools were active during the last analysis
@@ -141,6 +164,10 @@ function ResultsDisplay({
                   </pre>
                 </>
               )}
+            <div className="p-4">
+              <h2 className="text-md font-semibold mb-2">Call Tree</h2>
+              <TreeGraph data={placeholderCallTree} />
+            </div>
             </div>
           )}
         </div>
