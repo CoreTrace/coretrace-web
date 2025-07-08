@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 function EditorToolbar({
     filename,
@@ -88,5 +89,22 @@ function EditorToolbar({
         </div>
     );
 }
+
+EditorToolbar.propTypes = {
+    filename: PropTypes.string.isRequired,
+    setFilename: PropTypes.func.isRequired,
+    options: PropTypes.shape({
+        static: PropTypes.bool,
+        dynamic: PropTypes.bool,
+        tools: PropTypes.arrayOf(PropTypes.string)
+    }).isRequired,
+    availableTools: PropTypes.shape({
+        tools: PropTypes.arrayOf(PropTypes.string)
+    }),
+    handleOptionChange: PropTypes.func.isRequired,
+    handleToolToggle: PropTypes.func.isRequired,
+    analyzeCode: PropTypes.func.isRequired,
+    loading: PropTypes.bool
+};
 
 export default EditorToolbar;

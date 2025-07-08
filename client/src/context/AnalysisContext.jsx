@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext } from 'react';
 import { analyzeCode as analyzeCodeAPI } from '../services/api/api';
+import PropTypes from 'prop-types';
 
 const AnalysisContext = createContext();
 
@@ -59,4 +60,8 @@ export const AnalysisProvider = ({ children }) => {
             {children}
         </AnalysisContext.Provider>
     );
+};
+
+AnalysisProvider.propTypes = {
+    children: PropTypes.node.isRequired,
 };

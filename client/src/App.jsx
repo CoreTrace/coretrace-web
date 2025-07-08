@@ -35,7 +35,7 @@ function App() {
   const [code, setCode] = useState('// Write your code here\n#include <iostream>\n\nint main(void)\n{\n  printf("Hello, World !\\n");\n  return 0;\n}');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [dividerPosition, setDividerPosition] = useState(50); // Percentage width of the left pane
+  let dividerPosition = 50; // Percentage width of the left pane
   const [filename, setFilename] = useState('main.cpp');
   const [options, setOptions] = useState({
     static: true,
@@ -111,7 +111,7 @@ function App() {
           handleToolToggle={handleToolToggle}
           analyzeCode={handleAnalyzeCode}
           dividerPosition={dividerPosition}
-        />
+          />
       ) : (
         <div className="flex items-center justify-center w-full">
           <p>Loading tools...</p>
