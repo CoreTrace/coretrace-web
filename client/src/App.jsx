@@ -32,7 +32,7 @@ import { analyzeCode as analyzeCodeAPI, getAvailableTools } from './services/api
  * @function handleAnalyzeCode - Initiates the code analysis process by calling an API and updates the results state.
  */
 function App() {
-  const [code, setCode] = useState('// Write your code here\n#include <iostream>\n\nint main(void)\n{\n  std::cout << "Hello, World !" << std::endl;\n  return 0;\n}');
+  const [code, setCode] = useState('// Write your code here\n#include <iostream>\n\nint main(void)\n{\n  printf("Hello, World !\\n");\n  return 0;\n}');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dividerPosition, setDividerPosition] = useState(50); // Percentage width of the left pane
@@ -96,6 +96,8 @@ function App() {
         code={code}
         setCode={setCode}
         dividerPosition={dividerPosition}
+        filename={filename}
+        setFilename={setFilename}
       />
       {availableTools.tools.length > 0 ? (
         <ResultsPane

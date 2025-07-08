@@ -23,7 +23,6 @@ const api = axios.create({
  */
 export const analyzeCode = async (filename, code, options) => {
     try {
-        console.log('Analyzing code with options:', options);
         const response = await axios.post(`${API_URL}/api/analyze`, {
             files: { [filename]: code },
             options

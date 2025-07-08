@@ -10,8 +10,6 @@ function EditorToolbar({
     analyzeCode,
     loading
 }) {
-    console.log("options",options);
-
     return (
         <div className="border-b border-gray-700">
             {/* Main toolbar */}
