@@ -18,8 +18,10 @@ class JobManager {
     }
 
     createJob(files, options = {}) {
+        console.log('createJob');
         const jobId = uuidv4();
         const workDir = path.join(config.filesystem.workDir, jobId);
+        console.log('workDir', workDir);
 
         // Create job directory
         fs.mkdirSync(workDir, { recursive: true });
@@ -56,7 +58,7 @@ class JobManager {
 
         // Schedule cleanup if job is completed or failed
         if (status === 'completed' || status === 'failed') {
-            this.scheduleCleanup(jobId);
+            //this.scheduleCleanup(jobId);
         }
 
         return job;

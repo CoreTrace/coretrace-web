@@ -1,13 +1,11 @@
 // services/analyzer.js
-const { exec, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
-const { v4: uuidv4 } = require('uuid');
-const { createSandbox, cleanupSandbox, sandboxWithBestMethod } = require('./sandbox');
+const { sandboxWithBestMethod } = require('./sandbox');
 const config = require('../config');
 const logger = require('./logger');
 const jobManager = require('./jobManager');
+const { parseToolOutputs } = require('./sarifParser');
 
 // In-memory store for analysis jobs (would use a database in production)
 const analysisJobs = new Map();
@@ -44,11 +42,11 @@ class Analyzer {
             logger.info('Built arguments', { jobId: job.id, args });
 
             // Run analysis in sandbox
-            const result = await this.runAnalysis(execPath, args, job.id);
-            
+            const result = await this.runAnalysis(execPath, args, job.id, job.workDir);
+
             // Update job status
             jobManager.updateJobStatus(job.id, 'completed', result);
-            
+
             return result;
         } catch (error) {
             logger.error('Analysis failed', { jobId: job.id, error: error.message });
@@ -63,10 +61,27 @@ class Analyzer {
 
     saveFilesToWorkDir(workDir, files) {
         const filePaths = [];
+
+        // Save the uploaded files first
         for (const [filename, content] of Object.entries(files)) {
             const filePath = path.join(workDir, filename);
             fs.writeFileSync(filePath, content);
             filePaths.push(filename);
+        }
+
+        // Create the flawfinder directory structure that ctrace expects
+        const flawfinderTargetDir = path.join(workDir, 'flawfinder', 'src', 'flawfinder-build');
+        fs.mkdirSync(flawfinderTargetDir, { recursive: true });
+        console.log('flawfinderTargetDir', flawfinderTargetDir);
+        const flawfinderSource = path.join(__dirname, '../bin/flawfinder.py');
+        const flawfinderDest = path.join(flawfinderTargetDir, 'flawfinder.py');
+
+        if (fs.existsSync(flawfinderSource)) {
+            fs.copyFileSync(flawfinderSource, flawfinderDest);
+            fs.chmodSync(flawfinderDest, 0o755);
+            console.log("Flawfinder.py copied to", flawfinderDest);
+        } else {
+            throw new Error(`flawfinder.py not found at ${flawfinderSource}`);
         }
         return filePaths;
     }
@@ -79,24 +94,26 @@ class Analyzer {
             args.push(`--input=${filePaths.join(',')}`);
             if (options.static) args.push('--static');
             if (options.dynamic) args.push('--dyn');
-            if (options.tools?.length > 0) {
-                args.push(`--invoke=${options.tools.join(',')}`);
-            }
-            const reportPath = path.join(workDir, 'report.txt');
-            args.push(`--report-file=${reportPath}`);
+            // if (options.tools?.length > 0) {
+            //     args.push(`--invoke=${options.tools.join(',')}`);
+            // }
+            // const reportPath = path.join(workDir, 'report.txt');
+            // args.push(`--report-file=${reportPath}`);
+            args.push("--sarif-format");
         }
 
         return args;
     }
 
-    async runAnalysis(execPath, args, jobId) {
+    async runAnalysis(execPath, args, jobId, workDir) {
         logger.info('Running analysis in sandbox', { jobId, execPath, args });
 
         const result = await sandboxWithBestMethod(
             execPath,
             args,
             config.sandbox.qemu.timeout,
-            'firejail'
+            'firejail',
+            workDir
         );
 
         // Clean output
@@ -110,7 +127,10 @@ class Analyzer {
             result.message = "Using test executable - ctrace not found";
         }
 
-        return result;
+        const parsed = parseToolOutputs(result.stdout);
+        console.log(JSON.stringify(parsed, null, 2));
+        console.log(parsed);
+        return parsed;
     }
 
     cleanAnsiCodes(text) {

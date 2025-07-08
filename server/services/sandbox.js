@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const crypto = require('crypto');
 const config = require('../config');
 require('dotenv').config();
@@ -237,7 +237,7 @@ function sandboxWithFirejail(executablePath, args = [], timeoutMs = 10000) {
  * @param {string} preferredSandbox - 'bubblewrap', 'firejail', or 'fallback'
  * @returns {Promise<Object>} Result of the execution
  */
-async function sandboxWithBestMethod(executablePath, args = [], timeoutMs = 10000, preferredSandbox = 'qemu') {
+async function sandboxWithBestMethod(executablePath, args = [], timeoutMs = 10000, preferredSandbox = 'qemu', workDir) {
     console.log("sandboxWithBestMethod", executablePath, args, timeoutMs, preferredSandbox);
     try {
         // Try the preferred sandbox first
@@ -263,7 +263,7 @@ async function sandboxWithBestMethod(executablePath, args = [], timeoutMs = 1000
         if (preferredSandbox === 'firejail') {
             try {
                 console.log("Trying Firejail");
-                return await sandboxWithFirejailOnly(executablePath, args, timeoutMs);
+                return await sandboxWithFirejailOnly(executablePath, args, timeoutMs, workDir);
             } catch (firejailError) {
                 console.log("Firejail failed, falling back to basic sandbox:", firejailError.message);
             }
@@ -470,7 +470,8 @@ exec /bin/sh
 function sandboxWithFirejailOnly(
     executablePath,
     args = [],
-    timeoutMs = 10000
+    timeoutMs = 10000,
+    workDir = null
 ) {
     const path = require('path');
     const fs = require('fs');
@@ -480,8 +481,14 @@ function sandboxWithFirejailOnly(
         if (!fs.existsSync(executablePath)) {
             return reject(new Error(`Executable not found: ${executablePath}`));
         }
-        const sandboxDir = path.join(os.tmpdir(), `firejail-sandbox-${crypto.randomBytes(8).toString('hex')}`);
-        fs.mkdirSync(sandboxDir, { recursive: true });
+        console.log('fnuersjingvjfkdesnfdsiknbfsdjkl:wnbk workDir', workDir);
+        const sandboxDir = workDir || path.join(os.tmpdir(), `firejail-sandbox-${crypto.randomBytes(8).toString('hex')}`);
+        console.log('fnuersjingvjfkdesnfdsiknbfsdjkl:wnbk sandoxDir', sandboxDir);
+        if (!workDir) {
+            console.log('creating sandboxDir', sandboxDir);
+            fs.mkdirSync(sandboxDir, { recursive: true });
+        }
+        // fs.mkdirSync(sandboxDir, { recursive: true });
         const binaryName = path.basename(executablePath);
         const sandboxBinaryPath = path.join(sandboxDir, binaryName);
         fs.copyFileSync(executablePath, sandboxBinaryPath);
@@ -489,6 +496,8 @@ function sandboxWithFirejailOnly(
         // Compose the shell command with ulimit and firejail restrictions
         // --net=none disables network, --private uses a private /tmp and home
         // ulimit -v: max virtual memory (KB)
+        console.log('./' + path.basename(executablePath));
+        console.log('args', args);
         const shellCmd = [
             // 'ulimit -v 100000;',         // 100MB memory limit
             'exec',
@@ -503,64 +512,68 @@ function sandboxWithFirejailOnly(
             '--blacklist=/etc/shadow',
             '--blacklist=/etc/passwd',
             '--blacklist=/tmp',
-            './ctrace',
+            './' + path.basename(executablePath),
             ...args
         ].join(' ');
 
         console.log(`Running with firejail (ulimit + firejail): ${shellCmd}`);
+        try {
 
-        const child = spawn('bash', ['-c', shellCmd], {
-            cwd: path.dirname(executablePath),
-            stdio: 'pipe',
-            timeout: timeoutMs
-        });
-
-        let stdout = '';
-        let stderr = '';
-
-        child.stdout.on('data', (data) => {
-            stdout += data.toString();
-        });
-
-        child.stderr.on('data', (data) => {
-            stderr += data.toString();
-        });
-
-        child.on('close', (code) => {
-            resolve({
-                code,
-                stdout,
-                stderr,
-                success: code === 0
+            const child = spawn('bash', ['-c', shellCmd], {
+                cwd: path.dirname(executablePath),
+                stdio: 'pipe',
+                timeout: timeoutMs
             });
-            // Clean up temporary sandbox directory
-            try {
-                fs.rmSync(sandboxDir, { recursive: true, force: true });
-            } catch (error) {
-                console.error(`Failed to clean up sandbox directory ${sandboxDir}:`, error);
-            }
-        });
 
-        child.on('error', (err) => {
-            if (err.code === 'ENOENT') {
-                reject(new Error('firejail is not installed. Please install firejail.'));
-            } else {
-                reject(err);
-            }
-            // Clean up temporary sandbox directory
-            try {
-                fs.rmSync(sandboxDir, { recursive: true, force: true });
-            } catch (error) {
-                console.error(`Failed to clean up sandbox directory ${sandboxDir}:`, error);
-            }
-        });
+            let stdout = '';
+            let stderr = '';
 
-        setTimeout(() => {
-            if (!child.killed) {
-                child.kill('SIGKILL');
-                reject(new Error('child execution timed out'));
-            }
-        }, timeoutMs);
+            child.stdout.on('data', (data) => {
+                stdout += data.toString();
+            });
+
+            child.stderr.on('data', (data) => {
+                stderr += data.toString();
+            });
+
+            child.on('close', (code) => {
+                resolve({
+                    code,
+                    stdout,
+                    stderr,
+                    success: code === 0
+                });
+                // Clean up temporary sandbox directory
+                try {
+                    fs.rmSync(sandboxDir, { recursive: true, force: true });
+                } catch (error) {
+                    console.error(`Failed to clean up sandbox directory ${sandboxDir}:`, error);
+                }
+            });
+
+            child.on('error', (err) => {
+                if (err.code === 'ENOENT') {
+                    reject(new Error('firejail is not installed. Please install firejail.'));
+                } else {
+                    reject(err);
+                }
+                // Clean up temporary sandbox directory
+                try {
+                    fs.rmSync(sandboxDir, { recursive: true, force: true });
+                } catch (error) {
+                    console.error(`Failed to clean up sandbox directory ${sandboxDir}:`, error);
+                }
+            });
+
+            setTimeout(() => {
+                if (!child.killed) {
+                    child.kill('SIGKILL');
+                    reject(new Error('child execution timed out'));
+                }
+            }, timeoutMs);
+        } catch (error) {
+            console.error('error ', error);
+        }
     });
 }
 
@@ -595,7 +608,7 @@ function sandboxWithQemuUser(
         // ulimit -v: max virtual memory (KB), ulimit -u: max user processes
         const shellCmd = [
             'ulimit -v 500000;',         // 500MB memory limit
-//            'ulimit -u 128;',             // Max 32 processes
+            //            'ulimit -u 128;',             // Max 32 processes
             'exec',
             'firejail',
             '--quiet',
@@ -659,7 +672,6 @@ function sandboxWithQemuUser(
         }, timeoutMs);
     });
 }
-
 
 module.exports = {
     createSandbox,

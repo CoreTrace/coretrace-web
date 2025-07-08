@@ -36,7 +36,7 @@ import { analyzeCode as analyzeCodeAPI, getAvailableTools } from './services/api
  * @param {MouseEvent} e - The mouse down event.
  */
 function App() {
-  const [code, setCode] = useState('// Write your code here\n#include <iostream>\n\nint main(void)\n{\n  std::cout << "Hello, World !" << std::endl;\n  return 0;\n}');
+  const [code, setCode] = useState('// Write your code here\n#include <iostream>\n\nint main(void)\n{\n  printf("Hello, World !\\n");\n  return 0;\n}');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dividerPosition, setDividerPosition] = useState(50); // Percentage width of the left pane
