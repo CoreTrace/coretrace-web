@@ -1,5 +1,5 @@
 const express = require('express');
-const { analyzeCode, getAnalysisStatus } = require('../services/analyzer');
+const analyzer = require('../services/analyzer');
 
 const router = express.Router();
 
@@ -36,7 +36,7 @@ router.post('/', async (req, res) => {
         }
 
         // Call service function to handle the analysis
-        const result = await analyzeCode(files, options || {});
+        const result = await analyzer.analyzeCode(files, options || {});
         res.json(result);
     } catch (error) {
         console.error('Error analyzing code:', error);
