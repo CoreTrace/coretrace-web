@@ -1,19 +1,25 @@
-import React, { useState } from 'react';
+/**
+ * @module CodeEditor
+ * @description Monaco Editor-based code editor component for C/C++ code editing.
+ */
+
+import React from 'react';
+import PropTypes from 'prop-types';
 import Editor from '@monaco-editor/react';
 
+/**
+ * @component CodeEditor
+ * @description Code editor component using Monaco Editor for C/C++ code.
+ * @param {Object} props - Component props
+ * @param {string} props.code - The code to display and edit
+ * @param {function} props.setCode - Setter for code value
+ * @returns {JSX.Element} Code editor panel
+ */
 function CodeEditor({
     code,
     setCode,
-    filename,
-    setFilename,
-    options,
-    handleOptionChange,
-    handleToolToggle,
-    analyzeCode,
-    loading,
-    results
 }) {
-    const [isResultsCollapsed, setIsResultsCollapsed] = useState(false);
+    // const [isResultsCollapsed, setIsResultsCollapsed] = useState(false);
 
     return (
         <div className="flex h-screen w-screen bg-gray-900">
@@ -45,7 +51,7 @@ function CodeEditor({
                     <h2 className="text-xl font-semibold">Results</h2>
                 </div>
 
-                {!isResultsCollapsed && (
+                {/* {!isResultsCollapsed && (
                     <div className="results-panel">
                         {loading ? (
                             <div className="flex justify-center items-center h-32">
@@ -61,10 +67,20 @@ function CodeEditor({
                             </div>
                         )}
                     </div>
-                )}
+                )} */}
             </div>
         </div>
     );
 }
+
+CodeEditor.propTypes = {
+    code: PropTypes.string.isRequired,
+    setCode: PropTypes.func.isRequired,
+    loading: PropTypes.bool,
+    results: PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.object
+    ])
+};
 
 export default CodeEditor;

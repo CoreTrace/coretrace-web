@@ -1,3 +1,9 @@
+/**
+ * @module Analyzer
+ * @description Core analysis service that handles code analysis using ctrace and flawfinder tools.
+ * Manages file processing, sandbox execution, and result parsing for security analysis.
+ */
+
 // services/analyzer.js
 const fs = require('fs');
 const path = require('path');
@@ -10,12 +16,31 @@ const { parseToolOutputs } = require('./sarifParser');
 // In-memory store for analysis jobs (would use a database in production)
 const analysisJobs = new Map();
 
+/**
+ * @class Analyzer
+ * @description Main analyzer class that orchestrates code analysis using ctrace and flawfinder.
+ * Handles file management, executable path resolution, and result processing.
+ */
 class Analyzer {
+    /**
+     * @constructor
+     * @description Initializes the analyzer with executable paths for ctrace and test binaries.
+     */
     constructor() {
         this.ctraceExecutable = path.join(__dirname, '../../server/bin/ctrace');
         this.testExecutable = path.join(__dirname, '../../server/bin/test');
     }
 
+    /**
+     * @method analyzeCode
+     * @description Performs comprehensive code analysis on uploaded files using ctrace and flawfinder.
+     * @param {Object} files - Object containing filename-content pairs of files to analyze
+     * @param {Object} options - Analysis options including static/dynamic flags
+     * @param {boolean} [options.static] - Enable static analysis
+     * @param {boolean} [options.dynamic] - Enable dynamic analysis
+     * @returns {Promise<Object>} Parsed analysis results with tool-specific findings
+     * @throws {Error} When file validation fails or analysis execution errors occur
+     */
     async analyzeCode(files, options) {
         logger.info('Starting analysis', { files: Object.keys(files), options });
 
@@ -55,10 +80,23 @@ class Analyzer {
         }
     }
 
+    /**
+     * @method getExecutablePath
+     * @description Determines the appropriate executable path, falling back to test executable if ctrace is not available.
+     * @returns {string} Path to the executable to use for analysis
+     */
     getExecutablePath() {
         return fs.existsSync(this.ctraceExecutable) ? this.ctraceExecutable : this.testExecutable;
     }
 
+    /**
+     * @method saveFilesToWorkDir
+     * @description Saves uploaded files to the working directory and sets up flawfinder environment.
+     * @param {string} workDir - Working directory path where files should be saved
+     * @param {Object} files - Object containing filename-content pairs
+     * @returns {Array<string>} Array of saved file paths
+     * @throws {Error} When flawfinder.py is not found or file operations fail
+     */
     saveFilesToWorkDir(workDir, files) {
         const filePaths = [];
 
@@ -86,6 +124,14 @@ class Analyzer {
         return filePaths;
     }
 
+    /**
+     * @method buildArguments
+     * @description Builds command line arguments for the analysis executable based on options and file paths.
+     * @param {Array<string>} filePaths - Array of file paths to analyze
+     * @param {Object} options - Analysis options including static/dynamic flags
+     * @param {string} workDir - Working directory path
+     * @returns {Array<string>} Array of command line arguments
+     */
     buildArguments(filePaths, options, workDir) {
         const args = [];
         const execPath = this.getExecutablePath();
@@ -105,6 +151,15 @@ class Analyzer {
         return args;
     }
 
+    /**
+     * @method runAnalysis
+     * @description Executes the analysis in a sandboxed environment and processes the results.
+     * @param {string} execPath - Path to the executable to run
+     * @param {Array<string>} args - Command line arguments for the executable
+     * @param {string} jobId - Unique job identifier
+     * @param {string} workDir - Working directory path
+     * @returns {Promise<Object>} Parsed analysis results with tool-specific findings
+     */
     async runAnalysis(execPath, args, jobId, workDir) {
         logger.info('Running analysis in sandbox', { jobId, execPath, args });
 
@@ -133,6 +188,12 @@ class Analyzer {
         return parsed;
     }
 
+    /**
+     * @method cleanAnsiCodes
+     * @description Removes ANSI escape codes from text output for cleaner logging.
+     * @param {string} text - Text that may contain ANSI escape codes
+     * @returns {string} Cleaned text without ANSI codes
+     */
     cleanAnsiCodes(text) {
         if (!text) return '';
         return text.replace(/\u001b\[\d+m|\[\d+m/g, '');

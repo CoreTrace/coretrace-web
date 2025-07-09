@@ -1,15 +1,39 @@
+/**
+ * @module CodeEditorPane
+ * @description Pane component for code editing, file open/save, and filename input.
+ */
+
 import React, { useRef } from 'react';
+import PropTypes from 'prop-types';
 import Editor from '@monaco-editor/react';
 
+/**
+ * @component CodeEditorPane
+ * @description Pane for code editing, file open/save, and filename input.
+ * @param {Object} props - Component props
+ * @param {string} props.code - The code to display and edit
+ * @param {function} props.setCode - Setter for code value
+ * @param {number} props.dividerPosition - Width of the divider (percentage)
+ * @param {string} props.filename - Name of the file being edited
+ * @param {function} props.setFilename - Setter for filename
+ * @returns {JSX.Element} Code editor pane
+ */
 function CodeEditorPane({ code, setCode, dividerPosition, filename, setFilename }) {
   const fileInputRef = useRef(null);
 
-  // Open file handler
+  /**
+   * @function handleOpenClick
+   * @description Triggers the file input dialog for opening a file
+   */
   const handleOpenClick = () => {
     fileInputRef.current.click();
   };
 
-  // Read file and set code
+  /**
+   * @function handleFileChange
+   * @description Reads the selected file and sets the code content
+   * @param {Event} e - File input change event
+   */
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file && (file.name.endsWith('.c') || file.name.endsWith('.cpp'))) {
@@ -24,7 +48,10 @@ function CodeEditorPane({ code, setCode, dividerPosition, filename, setFilename 
     e.target.value = '';
   };
 
-  // Save file handler
+  /**
+   * @function handleSaveClick
+   * @description Saves the current code to a file with the specified filename
+   */
   const handleSaveClick = () => {
     const blob = new Blob([code], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -91,5 +118,18 @@ function CodeEditorPane({ code, setCode, dividerPosition, filename, setFilename 
     </div>
   );
 }
+
+CodeEditorPane.propTypes = {
+  code: PropTypes.string.isRequired,
+  setCode: PropTypes.func.isRequired,
+  dividerPosition: PropTypes.number.isRequired,
+  setFilename: PropTypes.func.isRequired,
+  filename: PropTypes.string,
+  results: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.object
+  ])
+};
+
 
 export default CodeEditorPane;

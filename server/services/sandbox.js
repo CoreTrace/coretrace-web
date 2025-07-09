@@ -1,3 +1,9 @@
+/**
+ * @module Sandbox
+ * @description Sandbox execution service providing multiple isolation methods for secure code analysis.
+ * Supports QEMU virtualization, Firejail, Bubblewrap, and fallback sandboxing with resource limits.
+ */
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -5,13 +11,25 @@ const { spawn, exec } = require('child_process');
 const crypto = require('crypto');
 const config = require('../config');
 require('dotenv').config();
+
+/**
+ * @type {string}
+ * @description QEMU binary path, configurable via environment variable
+ */
 const qemuBinary = process.env.QEMU_BINARY || 'qemu-x86_64';
+
+/**
+ * @type {string}
+ * @description Library root path for QEMU user-mode emulation
+ */
 const libRoot = process.env.QEMU_LIB_ROOT || '/usr/x86_64-linux-gnu';
 
 /**
- * Create a sandboxed environment for running code analysis
- * @param {string} jobId - ID of the analysis job
- * @returns {Promise<string>} Path to the sandbox directory
+ * @function createSandbox
+ * @description Creates a sandboxed environment for running code analysis with proper permissions.
+ * @param {string} jobId - Unique identifier for the analysis job
+ * @returns {Promise<string>} Path to the created sandbox directory
+ * @throws {Error} When sandbox creation fails
  */
 async function createSandbox(jobId) {
     // Create a temporary working directory
@@ -36,8 +54,10 @@ async function createSandbox(jobId) {
 }
 
 /**
- * Clean up the sandbox after analysis is complete
- * @param {string} workDir - Path to the sandbox directory
+ * @function cleanupSandbox
+ * @description Safely cleans up the sandbox directory after analysis completion.
+ * Validates the directory path to prevent accidental deletion of system directories.
+ * @param {string} workDir - Path to the sandbox directory to cleanup
  * @returns {Promise<void>}
  */
 async function cleanupSandbox(workDir) {
@@ -56,11 +76,14 @@ async function cleanupSandbox(workDir) {
 }
 
 /**
- * Run an executable in a Bubblewrap sandbox
- * @param {string} executablePath - Path to the executable
- * @param {Array} args - Arguments to pass to the executable
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Promise<Object>} Result of the execution
+ * @function sandboxWithBubblewrap
+ * @description Runs an executable in a Bubblewrap sandbox with comprehensive security restrictions.
+ * Provides namespace isolation, read-only mounts, and network restrictions.
+ * @param {string} executablePath - Path to the executable to run
+ * @param {Array} args - Command line arguments for the executable
+ * @param {number} timeoutMs - Execution timeout in milliseconds
+ * @returns {Promise<Object>} Execution result with code, stdout, stderr, and success status
+ * @throws {Error} When Bubblewrap is not installed or execution fails
  */
 function sandboxWithBubblewrap(executablePath, args = [], timeoutMs = 10000) {
     return new Promise((resolve, reject) => {
@@ -147,11 +170,14 @@ function sandboxWithBubblewrap(executablePath, args = [], timeoutMs = 10000) {
 }
 
 /**
- * Run an executable in a Firejail sandbox
- * @param {string} executablePath - Path to the executable
- * @param {Array} args - Arguments to pass to the executable
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Promise<Object>} Result of the execution
+ * @function sandboxWithFirejail
+ * @description Runs an executable in a Firejail sandbox with comprehensive security restrictions.
+ * Provides filesystem isolation, capability dropping, and resource limits.
+ * @param {string} executablePath - Path to the executable to run
+ * @param {Array} args - Command line arguments for the executable
+ * @param {number} timeoutMs - Execution timeout in milliseconds
+ * @returns {Promise<Object>} Execution result with code, stdout, stderr, and success status
+ * @throws {Error} When Firejail is not installed or execution fails
  */
 function sandboxWithFirejail(executablePath, args = [], timeoutMs = 10000) {
     return new Promise((resolve, reject) => {
@@ -230,12 +256,16 @@ function sandboxWithFirejail(executablePath, args = [], timeoutMs = 10000) {
 }
 
 /**
- * Run an executable in the best available sandbox
- * @param {string} executablePath - Path to the executable
- * @param {Array} args - Arguments to pass to the executable
- * @param {number} timeoutMs - Timeout in milliseconds
- * @param {string} preferredSandbox - 'bubblewrap', 'firejail', or 'fallback'
- * @returns {Promise<Object>} Result of the execution
+ * @function sandboxWithBestMethod
+ * @description Executes an executable using the best available sandbox method with fallback options.
+ * Tries preferred sandbox first, then falls back to other methods if available.
+ * @param {string} executablePath - Path to the executable to run
+ * @param {Array} args - Command line arguments for the executable
+ * @param {number} timeoutMs - Execution timeout in milliseconds
+ * @param {string} preferredSandbox - Preferred sandbox method ('qemu', 'bubblewrap', 'firejail')
+ * @param {string} workDir - Working directory for the sandbox
+ * @returns {Promise<Object>} Execution result with code, stdout, stderr, and success status
+ * @throws {Error} When all sandbox methods fail
  */
 async function sandboxWithBestMethod(executablePath, args = [], timeoutMs = 10000, preferredSandbox = 'qemu', workDir) {
     console.log("sandboxWithBestMethod", executablePath, args, timeoutMs, preferredSandbox);
@@ -279,12 +309,14 @@ async function sandboxWithBestMethod(executablePath, args = [], timeoutMs = 1000
 }
 
 /**
- * sandboxExecutable - Run an executable in a sandboxed environment
- * @param {string} executablePath - Path to the executable
- * @param {Array} args - Arguments to pass to the executable
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Promise<Object>} Result of the execution
- * */
+ * @function sandboxExecutable
+ * @description Runs an executable with basic resource limits using ulimit.
+ * Provides minimal sandboxing with CPU time, file descriptor, and process limits.
+ * @param {string} executablePath - Path to the executable to run
+ * @param {Array} args - Command line arguments for the executable
+ * @param {number} timeoutMs - Execution timeout in milliseconds
+ * @returns {Promise<Object>} Execution result with code, stdout, stderr, and success status
+ */
 function sandboxExecutable(executablePath, args = [], timeoutMs = 10000) {
     return new Promise((resolve, reject) => {
         // Set resource limits using ulimit on Linux
@@ -338,11 +370,14 @@ function sandboxExecutable(executablePath, args = [], timeoutMs = 10000) {
 }
 
 /**
- * Run an executable in a QEMU-based sandbox
- * @param {string} executablePath - Path to the executable
- * @param {Array} args - Arguments to pass to the executable
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Promise<Object>} Result of the execution
+ * @function sandboxWithQemu
+ * @description Runs an executable in a QEMU system-mode virtual machine for maximum isolation.
+ * Creates a minimal VM environment with custom kernel and initrd.
+ * @param {string} executablePath - Path to the executable to run
+ * @param {Array} args - Command line arguments for the executable
+ * @param {number} timeoutMs - Execution timeout in milliseconds
+ * @returns {Promise<Object>} Execution result with code, stdout, stderr, and success status
+ * @throws {Error} When QEMU is not installed or VM creation fails
  */
 function sandboxWithQemu(executablePath, args = [], timeoutMs = 10000) {
     return new Promise((resolve, reject) => {
@@ -460,12 +495,15 @@ exec /bin/sh
 }
 
 /**
- * Run an executable in a Firejail sandbox with resource and network restrictions.
+ * @function sandboxWithFirejailOnly
+ * @description Runs an executable in a Firejail sandbox with resource and network restrictions.
  * Applies ulimit for memory (500MB) and uses firejail for network and filesystem isolation.
- * @param {string} executablePath - Path to the executable
- * @param {Array} args - Arguments to pass to the executable
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Promise<Object>} Result of the execution
+ * @param {string} executablePath - Path to the executable to run
+ * @param {Array} args - Command line arguments for the executable
+ * @param {number} timeoutMs - Execution timeout in milliseconds
+ * @param {string} workDir - Working directory for the sandbox
+ * @returns {Promise<Object>} Execution result with code, stdout, stderr, and success status
+ * @throws {Error} When Firejail is not installed or execution fails
  */
 function sandboxWithFirejailOnly(
     executablePath,
@@ -578,12 +616,16 @@ function sandboxWithFirejailOnly(
 }
 
 /**
- * Alternative QEMU sandboxing approach using user-mode emulation
+ * @function sandboxWithQemuUser
+ * @description Alternative QEMU sandboxing approach using user-mode emulation.
  * Now applies ulimit (memory/process) and firejail (network/filesystem) restrictions.
- * @param {string} executablePath - Path to the executable
- * @param {Array} args - Arguments to pass to the executable
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Promise<Object>} Result of the execution
+ * @param {string} executablePath - Path to the executable to run
+ * @param {Array} args - Command line arguments for the executable
+ * @param {number} timeoutMs - Execution timeout in milliseconds
+ * @param {string} libRoot - Library root path for QEMU user-mode
+ * @param {string|null} customLibDir - Custom library directory path
+ * @returns {Promise<Object>} Execution result with code, stdout, stderr, and success status
+ * @throws {Error} When QEMU user-mode or Firejail is not installed
  */
 function sandboxWithQemuUser(
     executablePath,

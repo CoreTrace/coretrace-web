@@ -1,56 +1,82 @@
+/**
+ * @module App
+ * @description Main application component for the CoreTrace web interface.
+ * Provides a code editor with analysis capabilities and results display.
+ */
+
 import React, { useState, useEffect } from 'react';
 import CodeEditorPane from './components/Editor/CodeEditorPane';
 import ResultsPane from './components/Editor/ResultsPane';
-import Divider from './components/Editor/Divider';
 import { analyzeCode as analyzeCodeAPI, getAvailableTools } from './services/api/api';
 
 /**
- * The main application component that renders the code editor and results pane.
- * It manages the state for the code editor, analysis results, available tools, and user options.
- *
- * @component
- * @returns {JSX.Element} The rendered App component.
- *
+ * @component App
+ * @description The main application component that renders the code editor and results pane.
+ * Manages the state for the code editor, analysis results, available tools, and user options.
+ * 
+ * @returns {JSX.Element} The rendered App component with code editor and results pane
+ * 
  * @example
  * <App />
- *
- * @state {string} code - The code entered by the user in the editor.
- * @state {object|null} results - The results of the code analysis or null if no analysis has been performed.
- * @state {boolean} loading - Indicates whether the code analysis is in progress.
- * @state {number} dividerPosition - The percentage width of the left pane (code editor).
- * @state {string} filename - The name of the file being analyzed.
- * @state {object} options - The user-selected options for code analysis, including static/dynamic analysis and selected tools.
- * @state {object} availableTools - The list of tools available for analysis.
- *
- * @effect Fetches the list of available tools when the component mounts and updates the state accordingly.
- *
- * @function handleOptionChange - Toggles a boolean option (e.g., static or dynamic analysis).
- * @param {string} option - The name of the option to toggle.
- *
- * @function handleToolToggle - Toggles the inclusion of a specific tool in the analysis options.
- * @param {string} tool - The name of the tool to toggle.
- *
- * @function handleAnalyzeCode - Initiates the code analysis process by calling an API and updates the results state.
- *
- * @function handleMouseDown - Handles the mouse down event for resizing the divider between the panes.
- * @param {MouseEvent} e - The mouse down event.
  */
 function App() {
+  /**
+   * @type {string}
+   * @description The code entered by the user in the editor
+   */
   const [code, setCode] = useState('// Write your code here\n#include <iostream>\n\nint main(void)\n{\n  printf("Hello, World !\\n");\n  return 0;\n}');
+
+  /**
+   * @type {Object|null}
+   * @description The results of the code analysis or null if no analysis has been performed
+   */
   const [results, setResults] = useState(null);
+
+  /**
+   * @type {boolean}
+   * @description Indicates whether the code analysis is in progress
+   */
   const [loading, setLoading] = useState(false);
-  const [dividerPosition, setDividerPosition] = useState(50); // Percentage width of the left pane
+
+  /**
+   * @type {number}
+   * @description The percentage width of the left pane (code editor)
+   */
+  let dividerPosition = 50;
+
+  /**
+   * @type {string}
+   * @description The name of the file being analyzed
+   */
   const [filename, setFilename] = useState('main.cpp');
+
+  /**
+   * @type {Object}
+   * @description The user-selected options for code analysis
+   * @property {boolean} static - Enable static analysis
+   * @property {boolean} dynamic - Enable dynamic analysis
+   * @property {Array<string>} tools - Selected tools for analysis
+   */
   const [options, setOptions] = useState({
     static: true,
     dynamic: false,
     tools: [],
   });
 
+  /**
+   * @type {Object}
+   * @description The list of tools available for analysis
+   * @property {Array<string>} tools - Array of available tool names
+   */
   const [availableTools, setAvailableTools] = useState({
     tools: [],
   });
 
+  /**
+   * @effect
+   * @description Fetches the list of available tools when the component mounts
+   * and updates the state accordingly. Sets default options to include all tools.
+   */
   useEffect(() => {
     const fetchTools = async () => {
       try {
@@ -67,10 +93,20 @@ function App() {
     fetchTools();
   }, []);
 
+  /**
+   * @function handleOptionChange
+   * @description Toggles a boolean option (e.g., static or dynamic analysis)
+   * @param {string} option - The name of the option to toggle
+   */
   const handleOptionChange = (option) => {
     setOptions((prev) => ({ ...prev, [option]: !prev[option] }));
   };
 
+  /**
+   * @function handleToolToggle
+   * @description Toggles the inclusion of a specific tool in the analysis options
+   * @param {string} tool - The name of the tool to toggle
+   */
   const handleToolToggle = (tool) => {
     setOptions((prev) => ({
       ...prev,
@@ -80,6 +116,11 @@ function App() {
     }));
   };
 
+  /**
+   * @function handleAnalyzeCode
+   * @description Initiates the code analysis process by calling the API
+   * and updates the results state with the analysis findings
+   */
   const handleAnalyzeCode = async () => {
     try {
       setLoading(true);
@@ -93,28 +134,6 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    const startX = e.clientX;
-
-    const handleMouseMove = (moveEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const newDividerPosition = Math.min(
-        Math.max(dividerPosition + (deltaX / window.innerWidth) * 100, 20),
-        80
-      );
-      setDividerPosition(newDividerPosition);
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
   };
 
   return (
