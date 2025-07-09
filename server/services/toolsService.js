@@ -1,9 +1,22 @@
+/**
+ * @module ToolsService
+ * @description Service for retrieving information about available analysis tools from ctrace.
+ * Provides functionality to query and parse available tools for code analysis.
+ */
+
 const { exec } = require('child_process');
 const path = require('path');
 
 /**
- * Get available tools by executing `ctrace --help`
- * @returns {Promise<Object>} JSON object with static, dynamic, and tools
+ * @function getAvailableTools
+ * @description Retrieves available analysis tools by executing `ctrace --help` and parsing the output.
+ * Extracts tool information from the help output and returns a structured list of available tools.
+ * @returns {Promise<Array<string>>} Array of available tool names
+ * @throws {Error} When ctrace execution fails or tool parsing fails
+ * 
+ * @example
+ * const tools = await getAvailableTools();
+ * // Returns: ['flawfinder', 'cppcheck', 'clang-tidy']
  */
 async function getAvailableTools() {
   const ctracePath = path.join(__dirname, '../../server/bin/ctrace');

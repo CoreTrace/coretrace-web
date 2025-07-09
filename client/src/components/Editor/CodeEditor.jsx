@@ -1,7 +1,20 @@
+/**
+ * @module CodeEditor
+ * @description Monaco Editor-based code editor component for C/C++ code editing.
+ */
+
 import React from 'react';
 import PropTypes from 'prop-types';
 import Editor from '@monaco-editor/react';
 
+/**
+ * @component CodeEditor
+ * @description Code editor component using Monaco Editor for C/C++ code.
+ * @param {Object} props - Component props
+ * @param {string} props.code - The code to display and edit
+ * @param {function} props.setCode - Setter for code value
+ * @returns {JSX.Element} Code editor panel
+ */
 function CodeEditor({
     code,
     setCode,

@@ -1,0 +1,19 @@
+{
+    "source": {
+        "include": [
+            "services/",
+            "routes/",
+            "controllers/",
+            "middlewares/"
+        ],
+        "exclude": [
+            "node_modules",
+            "temp"
+        ]
+    },
+    "opts": {
+        "destination": "./docs",
+        "recurse": true,
+        "template": "node_modules/jsdoc/templates/default"
+    }
+}

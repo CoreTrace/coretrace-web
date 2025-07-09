@@ -1,7 +1,28 @@
+/**
+ * @module ResultsPane
+ * @description Container for displaying the results panel and findings.
+ */
+
 import React from 'react';
 import ResultsDisplay from './Results';
 import PropTypes from 'prop-types';
 
+/**
+ * @component ResultsPane
+ * @description Container for the results panel, including findings and errors.
+ * @param {Object} props - Component props
+ * @param {Array|Object} props.results - Analysis results or error object
+ * @param {boolean} props.loading - Loading state
+ * @param {string} props.filename - Name of the analyzed file
+ * @param {function} props.setFilename - Setter for filename
+ * @param {Object} props.options - Analysis options
+ * @param {Array} props.availableTools - List of available tools
+ * @param {function} props.handleOptionChange - Handler for toggling options
+ * @param {function} props.handleToolToggle - Handler for toggling tools
+ * @param {function} props.analyzeCode - Handler to trigger analysis
+ * @param {number} props.dividerPosition - Width of the divider (percentage)
+ * @returns {JSX.Element} Results pane container
+ */
 function ResultsPane({
   results,
   loading,

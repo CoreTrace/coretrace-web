@@ -1,15 +1,35 @@
+/**
+ * @module JobManager
+ * @description Manages analysis jobs including creation, status tracking, validation, and cleanup.
+ * Provides job lifecycle management and file validation for the analysis system.
+ */
+
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 const config = require('../config');
 const logger = require('./logger');
 
+/**
+ * @class JobManager
+ * @description Handles the complete lifecycle of analysis jobs including creation, tracking, and cleanup.
+ * Maintains job state in memory and manages file system operations for job directories.
+ */
 class JobManager {
+    /**
+     * @constructor
+     * @description Initializes the job manager with job storage and ensures work directory exists.
+     */
     constructor() {
         this.jobs = new Map();
         this.initializeStorage();
     }
 
+    /**
+     * @method initializeStorage
+     * @description Ensures the job storage directory exists for file operations.
+     * Creates the work directory if it doesn't exist.
+     */
     initializeStorage() {
         // Ensure job storage directory exists
         if (!fs.existsSync(config.filesystem.workDir)) {
@@ -17,6 +37,13 @@ class JobManager {
         }
     }
 
+    /**
+     * @method createJob
+     * @description Creates a new analysis job with unique ID and work directory.
+     * @param {Object} files - Object containing filename-content pairs of files to analyze
+     * @param {Object} [options={}] - Analysis options and configuration
+     * @returns {Object} Job object with id, status, startTime, files, options, and workDir
+     */
     createJob(files, options = {}) {
         console.log('createJob');
         const jobId = uuidv4();
@@ -42,6 +69,16 @@ class JobManager {
         return job;
     }
 
+    /**
+     * @method updateJobStatus
+     * @description Updates the status of an existing job and optionally stores results or errors.
+     * @param {string} jobId - Unique job identifier
+     * @param {string} status - New status for the job ('created', 'running', 'completed', 'failed')
+     * @param {Object} [result=null] - Analysis results to store with the job
+     * @param {string} [error=null] - Error message if job failed
+     * @returns {Object} Updated job object
+     * @throws {Error} When job with specified ID is not found
+     */
     updateJobStatus(jobId, status, result = null, error = null) {
         const job = this.jobs.get(jobId);
         if (!job) {
@@ -64,10 +101,21 @@ class JobManager {
         return job;
     }
 
+    /**
+     * @method getJob
+     * @description Retrieves a job by its unique identifier.
+     * @param {string} jobId - Unique job identifier
+     * @returns {Object|null} Job object if found, null otherwise
+     */
     getJob(jobId) {
         return this.jobs.get(jobId);
     }
 
+    /**
+     * @method scheduleCleanup
+     * @description Schedules cleanup of a job after a configurable delay.
+     * @param {string} jobId - Unique job identifier to schedule cleanup for
+     */
     scheduleCleanup(jobId) {
         const job = this.jobs.get(jobId);
         if (!job) return;
@@ -78,6 +126,11 @@ class JobManager {
         }, config.jobs.cleanupDelay);
     }
 
+    /**
+     * @method cleanupJob
+     * @description Performs cleanup operations for a job including file removal and memory cleanup.
+     * @param {string} jobId - Unique job identifier to cleanup
+     */
     cleanupJob(jobId) {
         const job = this.jobs.get(jobId);
         if (!job) return;
@@ -99,6 +152,12 @@ class JobManager {
         }
     }
 
+    /**
+     * @method validateFiles
+     * @description Validates uploaded files for security, size, and format requirements.
+     * @param {Object} files - Object containing filename-content pairs to validate
+     * @returns {Array<string>} Array of validation error messages, empty if validation passes
+     */
     validateFiles(files) {
         const errors = [];
 

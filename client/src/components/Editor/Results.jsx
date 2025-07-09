@@ -1,9 +1,29 @@
+/**
+ * @module ResultsDisplay
+ * @description Displays analysis results, findings, and errors for selected tools.
+ */
+
 import React, { useEffect, useMemo, useState } from 'react';
 import EditorToolbar from './Toolbar';
 import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import PropTypes from 'prop-types';
 
+/**
+ * @component ResultsDisplay
+ * @description Displays findings and errors for selected analysis tools.
+ * @param {Object} props - Component props
+ * @param {Array|Object} props.results - Analysis results or error object
+ * @param {boolean} props.loading - Loading state
+ * @param {string} props.filename - Name of the analyzed file
+ * @param {Array} props.availableTools - List of available tools
+ * @param {function} props.setFilename - Setter for filename
+ * @param {Object} props.options - Analysis options
+ * @param {function} props.handleOptionChange - Handler for toggling options
+ * @param {function} props.handleToolToggle - Handler for toggling tools
+ * @param {function} props.analyzeCode - Handler to trigger analysis
+ * @returns {JSX.Element} Results display panel
+ */
 function ResultsDisplay({
   results,
   loading,
@@ -15,18 +35,35 @@ function ResultsDisplay({
   handleToolToggle,
   analyzeCode,
 }) {
-  // Set default selected option to "All" or first tool if available
+  /**
+   * @type {string}
+   * @description Currently selected tool for displaying findings
+   */
   const [selectedTool, setSelectedTool] = useState("All");
 
-  // Get tool names from results
+  /**
+   * @function toolNames
+   * @description Extracts tool names from results
+   * @returns {Array<string>} List of tool names
+   */
   const toolNames = useMemo(() => {
     if (!results || !Array.isArray(results)) return [];
     return results.map(r => r.tool);
   }, [results]);
 
+  /**
+   * @function displayOptions
+   * @description List of tool options for selection
+   * @returns {Array<string>} List of display options
+   */
   const displayOptions = useMemo(() => ["All", ...toolNames], [toolNames]);
 
-  // Get findings for the selected tool
+  /**
+   * @function getResultsForTool
+   * @description Gets findings for the selected tool
+   * @param {string} tool - Tool name or "All"
+   * @returns {Array<Object>} List of findings
+   */
   const getResultsForTool = (tool) => {
     if (!results || !Array.isArray(results)) return [];
     if (tool === "All") {
@@ -46,7 +83,11 @@ function ResultsDisplay({
     }
   }, [toolNames, selectedTool]);
 
-  // Handle button click for an option
+  /**
+   * @function handleOptionClick
+   * @description Handles tool selection button click
+   * @param {string} option - Tool name or "All"
+   */
   const handleOptionClick = (option) => {
     setSelectedTool(option);
     if (handleOptionChange) {

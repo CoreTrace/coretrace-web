@@ -1,15 +1,43 @@
+/**
+ * @module AnalyzeRoutes
+ * @description Express routes for code analysis functionality.
+ * Handles file upload, validation, and analysis requests using the analyzer service.
+ */
+
 const express = require('express');
 const analyzer = require('../services/analyzer');
 
+/**
+ * @type {express.Router}
+ * @description Router instance for analysis-related endpoints.
+ */
 const router = express.Router();
 
 /**
  * @route POST /api/analyze
- * @description Submit code for analysis with CoreTrace
+ * @description Submit code files for security analysis using CoreTrace and flawfinder tools.
+ * Accepts C/C++ source files and analysis options, returns structured analysis results.
+ * 
  * @param {Object} req - Express request object
- * @param {Object} req.body - Request body containing files and options
+ * @param {Object} req.body - Request body containing files and analysis options
+ * @param {Object} req.body.files - Object with filename-content pairs of C/C++ files to analyze
+ * @param {Object} [req.body.options] - Analysis options including static/dynamic flags
+ * @param {boolean} [req.body.options.static] - Enable static analysis
+ * @param {boolean} [req.body.options.dynamic] - Enable dynamic analysis
  * @param {Object} res - Express response object
- * @returns {void}
+ * @returns {Object} JSON response with analysis results or error message
+ * 
+ * @example
+ * POST /api/analyze
+ * {
+ *   "files": {
+ *     "main.c": "#include <stdio.h>\nint main() { return 0; }"
+ *   },
+ *   "options": {
+ *     "static": true,
+ *     "dynamic": false
+ *   }
+ * }
  */
 router.post('/', async (req, res) => {
     try {

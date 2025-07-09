@@ -1,6 +1,25 @@
+/**
+ * @module EditorToolbar
+ * @description Toolbar for code editor, providing filename input, analysis options, and tool selection.
+ */
+
 import React from 'react';
 import PropTypes from 'prop-types';
 
+/**
+ * @component EditorToolbar
+ * @description Toolbar for the code editor, including filename input, analysis options, and tool selection.
+ * @param {Object} props - Component props
+ * @param {string} props.filename - Name of the file being edited
+ * @param {function} props.setFilename - Setter for filename
+ * @param {Object} props.options - Analysis options (static, dynamic, tools)
+ * @param {Object} props.availableTools - Object with array of available tool names
+ * @param {function} props.handleOptionChange - Handler for toggling static/dynamic options
+ * @param {function} props.handleToolToggle - Handler for toggling tool selection
+ * @param {function} props.analyzeCode - Handler to trigger code analysis
+ * @param {boolean} props.loading - Loading state
+ * @returns {JSX.Element} Editor toolbar
+ */
 function EditorToolbar({
     filename,
     setFilename,
