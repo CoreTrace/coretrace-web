@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import PropTypes from 'prop-types';
 import Editor from '@monaco-editor/react';
 
 function CodeEditorPane({ code, setCode, dividerPosition, filename, setFilename }) {
@@ -91,5 +92,18 @@ function CodeEditorPane({ code, setCode, dividerPosition, filename, setFilename 
     </div>
   );
 }
+
+CodeEditorPane.propTypes = {
+  code: PropTypes.string.isRequired,
+  setCode: PropTypes.func.isRequired,
+  dividerPosition: PropTypes.number.isRequired,
+  setFilename: PropTypes.func.isRequired,
+  filename: PropTypes.string,
+  results: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.object
+  ])
+};
+
 
 export default CodeEditorPane;

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CodeEditorPane from './components/Editor/CodeEditorPane';
 import ResultsPane from './components/Editor/ResultsPane';
-import Divider from './components/Editor/Divider';
 import { analyzeCode as analyzeCodeAPI, getAvailableTools } from './services/api/api';
 
 /**
@@ -31,15 +30,12 @@ import { analyzeCode as analyzeCodeAPI, getAvailableTools } from './services/api
  * @param {string} tool - The name of the tool to toggle.
  *
  * @function handleAnalyzeCode - Initiates the code analysis process by calling an API and updates the results state.
- *
- * @function handleMouseDown - Handles the mouse down event for resizing the divider between the panes.
- * @param {MouseEvent} e - The mouse down event.
  */
 function App() {
   const [code, setCode] = useState('// Write your code here\n#include <iostream>\n\nint main(void)\n{\n  printf("Hello, World !\\n");\n  return 0;\n}');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [dividerPosition, setDividerPosition] = useState(50); // Percentage width of the left pane
+  let dividerPosition = 50; // Percentage width of the left pane
   const [filename, setFilename] = useState('main.cpp');
   const [options, setOptions] = useState({
     static: true,
@@ -55,8 +51,7 @@ function App() {
     const fetchTools = async () => {
       try {
         const response = await getAvailableTools();
-        const tools = response.tools; // Access the tools array
-        // Default to all tools
+        const tools = response.tools;
         setAvailableTools((prev) => ({ ...prev, tools: tools.map(tool => tool) }));
         setOptions((prev) => ({ ...prev, tools: tools.map(tool => tool) }));
       } catch (error) {
@@ -95,28 +90,6 @@ function App() {
     }
   };
 
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    const startX = e.clientX;
-
-    const handleMouseMove = (moveEvent) => {
-      const deltaX = moveEvent.clientX - startX;
-      const newDividerPosition = Math.min(
-        Math.max(dividerPosition + (deltaX / window.innerWidth) * 100, 20),
-        80
-      );
-      setDividerPosition(newDividerPosition);
-    };
-
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
   return (
     <div className="flex h-screen bg-gray-900 text-white">
       <CodeEditorPane
@@ -126,7 +99,6 @@ function App() {
         filename={filename}
         setFilename={setFilename}
       />
-      {/* <Divider handleMouseDown={handleMouseDown} /> */}
       {availableTools.tools.length > 0 ? (
         <ResultsPane
           results={results}
@@ -139,7 +111,7 @@ function App() {
           handleToolToggle={handleToolToggle}
           analyzeCode={handleAnalyzeCode}
           dividerPosition={dividerPosition}
-        />
+          />
       ) : (
         <div className="flex items-center justify-center w-full">
           <p>Loading tools...</p>

@@ -1,4 +1,4 @@
-import { Editor } from "@monaco-editor/react";
+import React, { Editor } from "@monaco-editor/react";
 
 export default function CodeEditor() {
   return (

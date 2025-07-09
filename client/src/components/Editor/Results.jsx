@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import EditorToolbar from './Toolbar';
 import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import PropTypes from 'prop-types';
 
 function ResultsDisplay({
   results,
@@ -161,5 +162,20 @@ function ResultsDisplay({
     </div>
   );
 }
+
+ResultsDisplay.propTypes = {
+  results: PropTypes.oneOfType([
+    PropTypes.array, // parsed results array
+    PropTypes.object, // error object, etc.
+  ]),
+  loading: PropTypes.bool,
+  filename: PropTypes.string,
+  availableTools: PropTypes.array,
+  setFilename: PropTypes.func,
+  options: PropTypes.object,
+  handleOptionChange: PropTypes.func,
+  handleToolToggle: PropTypes.func,
+  analyzeCode: PropTypes.func,
+};
 
 export default ResultsDisplay;

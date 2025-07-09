@@ -1,5 +1,6 @@
 import React from 'react';
 import ResultsDisplay from './Results';
+import PropTypes from 'prop-types';
 
 function ResultsPane({
   results,
@@ -35,5 +36,21 @@ function ResultsPane({
     </div>
   );
 }
+
+ResultsPane.propTypes = {
+  results: PropTypes.oneOfType([
+    PropTypes.array,
+    PropTypes.object,
+  ]),
+  loading: PropTypes.bool,
+  filename: PropTypes.string,
+  setFilename: PropTypes.func,
+  options: PropTypes.object,
+  availableTools: PropTypes.array,
+  handleOptionChange: PropTypes.func,
+  handleToolToggle: PropTypes.func,
+  analyzeCode: PropTypes.func,
+  dividerPosition: PropTypes.number.isRequired,
+};
 
 export default ResultsPane;

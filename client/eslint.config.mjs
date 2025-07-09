@@ -1,11 +1,38 @@
 import js from "@eslint/js";
 import globals from "globals";
 import pluginReact from "eslint-plugin-react";
-import { defineConfig } from "eslint/config";
+import babelParser from "@babel/eslint-parser";
 
-
-export default defineConfig([
-  { files: ["**/*.{js,mjs,cjs,jsx}"], plugins: { js }, extends: ["js/recommended"] },
-  { files: ["**/*.{js,mjs,cjs,jsx}"], languageOptions: { globals: globals.browser } },
-  pluginReact.configs.flat.recommended,
-]);
+export default [
+  {
+    files: ["**/*.{js,mjs,cjs,jsx}"],
+    languageOptions: {
+      parser: babelParser,
+      parserOptions: {
+        requireConfigFile: false,
+        babelOptions: {
+          presets: ["@babel/preset-react"],
+        },
+        ecmaVersion: 2021,
+        sourceType: "module",
+        ecmaFeatures: { jsx: true },
+      },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+    plugins: {
+      react: pluginReact,
+    },
+    rules: {
+      ...js.configs.recommended.rules,
+      ...pluginReact.configs.recommended.rules,
+    },
+    settings: {
+      react: {
+        version: "detect",
+      },
+    },
+  },
+];

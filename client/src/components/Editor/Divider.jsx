@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 function Divider({ handleMouseDown }) {
   return (
@@ -8,5 +9,9 @@ function Divider({ handleMouseDown }) {
     ></div>
   );
 }
+
+Divider.propTypes = {
+  handleMouseDown: PropTypes.func.isRequired
+};
 
 export default Divider;
